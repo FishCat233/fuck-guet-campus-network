@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,6 +23,10 @@ namespace GUETCampusNetAutoLogin
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
+
+            // 程序退出前取消订阅网络事件，释放资源
+            NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
+            Console.WriteLine("[INFO] Network address changed event unregistered.");
         }
 
         private static void OnNetworkAddressChanged(object sender, EventArgs e)
