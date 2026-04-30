@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -48,16 +46,21 @@ namespace GUETCampusNetAutoLogin
         private readonly HttpClient _httpClient;
 
         // 校园网登录相关配置
-        private const string LOGIN_PAGE_URL = "http://10.32.254.3/";
-        private const string LOGIN_API_URL = "http://10.32.254.3/drcom/login";
-        private const string CHECK_URL = "http://10.32.254.3/drcom/chkstatus";
+        private const string LOGIN_API_URL = "http://10.0.1.5:801/eportal/portal/login";
+        private const string WLAN_USER_MAC = "000000000000";
+        private const string WLAN_AC_NAME = "HJ-BRAS-ME60-01";
+        private const string REFERER = "https://10.0.1.5:801/";
         private static readonly TimeSpan REQUEST_TIMEOUT = TimeSpan.FromSeconds(10);
 
         public WifiAutoLogin()
         {
             _httpClient = new HttpClient();
             _httpClient.Timeout = REQUEST_TIMEOUT;
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+            _httpClient.DefaultRequestHeaders.Add("Accept", "*/*");
+            _httpClient.DefaultRequestHeaders.Add("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6");
+            _httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
+            _httpClient.DefaultRequestHeaders.Add("Referer", REFERER);
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0");
         }
 
         /// <summary>
@@ -67,24 +70,11 @@ namespace GUETCampusNetAutoLogin
         {
             try
             {
-                // 先检查是否已经在线
-                if (IsAlreadyOnline())
-                {
-                    return LoginResult.SuccessResult("您已经在线");
-                }
+                // 构建登录 URL
+                var loginUrl = BuildLoginUrl(username, password);
 
-                // 获取登录页面中的必要参数（如 challenge, mac 等）
-                var loginParams = GetLoginParameters();
-                if (loginParams == null)
-                {
-                    return LoginResult.FailureResult("无法获取登录参数，请检查网络连接");
-                }
-
-                // 构建登录请求
-                var content = BuildLoginContent(username, password, loginParams);
-
-                // 发送登录请求
-                var response = _httpClient.PostAsync(LOGIN_API_URL, content).Result;
+                // 发送 GET 登录请求
+                var response = _httpClient.GetAsync(loginUrl).Result;
                 var responseContent = response.Content.ReadAsStringAsync().Result;
 
                 // 解析登录结果
@@ -105,88 +95,25 @@ namespace GUETCampusNetAutoLogin
         }
 
         /// <summary>
-        /// 检查是否已在线
+        /// 将密码进行 Base64 编码
         /// </summary>
-        private bool IsAlreadyOnline()
+        private string EncodePassword(string password)
         {
-            try
-            {
-                var response = _httpClient.GetAsync(CHECK_URL).Result;
-                if (response.IsSuccessStatusCode)
-                {
-                    var content = response.Content.ReadAsStringAsync().Result;
-                    // 根据实际响应判断，通常包含用户信息的响应表示已在线
-                    return content.Contains("uid") || content.Contains("username");
-                }
-            }
-            catch { }
-            return false;
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(password));
         }
 
         /// <summary>
-        /// 从登录页面获取必要参数
+        /// 构建登录 URL
         /// </summary>
-        private Dictionary<string, string> GetLoginParameters()
+        private string BuildLoginUrl(string username, string password)
         {
-            try
-            {
-                var response = _httpClient.GetAsync(LOGIN_PAGE_URL).Result;
-                var content = response.Content.ReadAsStringAsync().Result;
+            var encodedPassword = EncodePassword(password);
+            var userAccount = $",0,{username}";
 
-                var parameters = new Dictionary<string, string>();
-
-                // 提取 challenge 参数
-                var challengeMatch = Regex.Match(content, @"challenge""?\s*[:=]\s*[""']?([^""'\s,;]+)");
-                if (challengeMatch.Success)
-                {
-                    parameters["challenge"] = challengeMatch.Groups[1].Value;
-                }
-
-                // 提取 mac 参数
-                var macMatch = Regex.Match(content, @"mac""?\s*[:=]\s*[""']?([^""'\s,;]+)");
-                if (macMatch.Success)
-                {
-                    parameters["mac"] = macMatch.Groups[1].Value;
-                }
-
-                // 提取其他可能需要的参数
-                var acidMatch = Regex.Match(content, @"acid""?\s*[:=]\s*[""']?([^""'\s,;]+)");
-                if (acidMatch.Success)
-                {
-                    parameters["acid"] = acidMatch.Groups[1].Value;
-                }
-
-                return parameters.Count > 0 ? parameters : null;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// 构建登录请求内容
-        /// </summary>
-        private FormUrlEncodedContent BuildLoginContent(string username, string password, Dictionary<string, string> parameters)
-        {
-            var formData = new Dictionary<string, string>
-            {
-                ["username"] = username,
-                ["password"] = password,
-                ["domain"] = "",  // 根据实际需要填写
-                ["enablemacauth"] = "0"
-            };
-
-            // 添加从页面获取的参数
-            foreach (var param in parameters)
-            {
-                if (!formData.ContainsKey(param.Key))
-                {
-                    formData[param.Key] = param.Value;
-                }
-            }
-
-            return new FormUrlEncodedContent(formData);
+            return $"{LOGIN_API_URL}?user_account={Uri.EscapeDataString(userAccount)}" +
+                   $"&user_password={Uri.EscapeDataString(encodedPassword)}" +
+                   $"&wlan_user_mac={WLAN_USER_MAC}" +
+                   $"&wlan_ac_name={Uri.EscapeDataString(WLAN_AC_NAME)}";
         }
 
         /// <summary>
@@ -199,37 +126,40 @@ namespace GUETCampusNetAutoLogin
                 return LoginResult.FailureResult("服务器返回空响应");
             }
 
-            // 成功响应通常包含 "success" 或 "ok"
-            if (response.IndexOf("success", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                response.IndexOf("ok", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                response.IndexOf("登录成功", StringComparison.OrdinalIgnoreCase) >= 0)
+            // 解析 JSONP 格式: jsonpReturn({...})
+            var jsonpMatch = Regex.Match(response, @"jsonpReturn\((.+?)\);?$");
+            if (!jsonpMatch.Success)
             {
-                return LoginResult.SuccessResult();
+                return LoginResult.FailureResult($"无法解析响应: {response.Substring(0, Math.Min(100, response.Length))}");
             }
 
-            // 解析错误信息
-            var errorMatch = Regex.Match(response, @"""error""?\s*[:=]\s*[""']([^""']+)""");
-            if (errorMatch.Success)
+            var jsonContent = jsonpMatch.Groups[1].Value;
+
+            // 提取 result 字段
+            var resultMatch = Regex.Match(jsonContent, @"""result""?\s*:\s*(\d+)");
+            var msgMatch = Regex.Match(jsonContent, @"""msg""?\s*:\s*""([^""]*)""");
+
+            if (!resultMatch.Success)
             {
-                return LoginResult.FailureResult($"登录失败: {errorMatch.Groups[1].Value}");
+                return LoginResult.FailureResult($"无法解析结果: {response.Substring(0, Math.Min(100, response.Length))}");
             }
 
-            var msgMatch = Regex.Match(response, @"""message""?\s*[:=]\s*[""']([^""']+)""");
-            if (msgMatch.Success)
+            int result = int.Parse(resultMatch.Groups[1].Value);
+            string message = msgMatch.Success ? msgMatch.Groups[1].Value : "未知响应";
+
+            // result=1 表示成功
+            if (result == 1)
             {
-                return LoginResult.FailureResult(msgMatch.Groups[1].Value);
+                return LoginResult.SuccessResult(message);
             }
 
-            // 如果响应中包含已在线的提示
-            if (response.IndexOf("already", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                response.IndexOf("online", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                response.IndexOf("已在线", StringComparison.OrdinalIgnoreCase) >= 0)
+            // result=0 且包含"已经在线"表示已在线
+            if (result == 0 && message.Contains("已经在线"))
             {
-                return LoginResult.SuccessResult("您已经在线");
+                return LoginResult.SuccessResult(message);
             }
 
-            // 默认返回原始响应
-            return LoginResult.FailureResult($"未知响应: {response.Substring(0, Math.Min(100, response.Length))}");
+            return LoginResult.FailureResult(message);
         }
     }
 }
