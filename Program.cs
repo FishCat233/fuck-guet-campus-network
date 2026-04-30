@@ -11,6 +11,11 @@ namespace GUETCampusNetAutoLogin
 {
     internal static class Program
     {
+        // 登录防抖控制字段
+        private static readonly object _loginLock = new object();
+        private static DateTime _lastLoginAttempt = DateTime.MinValue;
+        private static readonly TimeSpan _loginCooldown = TimeSpan.FromSeconds(10);
+
         /// <summary>
         /// 应用程序的主入口点。
         /// </summary>
@@ -34,6 +39,19 @@ namespace GUETCampusNetAutoLogin
             Console.WriteLine("[INFO] Network address changed.");
 
             Thread.Sleep(2000);
+
+            // 检查是否处于冷却期，防止短时间内重复登录
+            lock (_loginLock)
+            {
+                var timeSinceLastLogin = DateTime.Now - _lastLoginAttempt;
+                if (timeSinceLastLogin < _loginCooldown)
+                {
+                    Console.WriteLine($"[INFO] 登录冷却中，跳过本次登录请求 (剩余 {(_loginCooldown - timeSinceLastLogin).TotalSeconds:F0} 秒)");
+                    return;
+                }
+                _lastLoginAttempt = DateTime.Now;
+            }
+
             TryAutoLogin();
         }
 
