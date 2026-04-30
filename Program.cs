@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Management;
 using System.Net.NetworkInformation;
 using System.Threading;
+using ManagedNativeWifi;
 
 namespace GUETCampusNetAutoLogin
 {
@@ -44,65 +44,20 @@ namespace GUETCampusNetAutoLogin
         {
             try
             {
-                // 使用 WMI 查询当前连接的 WiFi 网络
-                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(
-                    "SELECT * FROM MSNDis_80211_ServiceSetIdentifier"))
+                // 使用 Native Wifi API 获取当前连接的 WiFi SSID
+                string ssid = WiFiManager.GetCurrentSSID();
+                if (!string.IsNullOrEmpty(ssid))
                 {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        byte[] ssidBytes = obj["Ndis80211SsId"] as byte[];
-                        if (ssidBytes != null)
-                        {
-                            string ssid = System.Text.Encoding.UTF8.GetString(ssidBytes).TrimEnd('\0');
-                            return ssid;
-                        }
-                    }
+                    return ssid;
                 }
 
-                // 备用方法：通过 NetworkInterface 获取
-                foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (ni.OperationalStatus == OperationalStatus.Up &&
-                        ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211)
-                    {
-                        // 尝试通过 WMI 获取该接口的 SSID
-                        string ssid = GetSSIDFromInterface(ni.Description);
-                        if (!string.IsNullOrEmpty(ssid))
-                        {
-                            return ssid;
-                        }
-                    }
-                }
+                Console.WriteLine("[WARN] 无法通过 Native Wifi API 获取 SSID");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] 获取 SSID 失败: {ex.Message}");
             }
 
-            return null;
-        }
-
-        /// <summary>
-        /// 通过接口描述获取 SSID
-        /// </summary>
-        private static string GetSSIDFromInterface(string interfaceDescription)
-        {
-            try
-            {
-                string query = $"SELECT * FROM MSNDis_80211_ServiceSetIdentifier WHERE InstanceName LIKE '%{interfaceDescription.Replace("'", "''")}%'";
-                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(query))
-                {
-                    foreach (ManagementObject obj in searcher.Get())
-                    {
-                        byte[] ssidBytes = obj["Ndis80211SsId"] as byte[];
-                        if (ssidBytes != null)
-                        {
-                            return System.Text.Encoding.UTF8.GetString(ssidBytes).TrimEnd('\0');
-                        }
-                    }
-                }
-            }
-            catch { }
             return null;
         }
 
