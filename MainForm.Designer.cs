@@ -1,4 +1,4 @@
-﻿namespace GUETCampusNetAutoLogin
+namespace GUETCampusNetAutoLogin
 {
     partial class MainForm
     {
@@ -58,7 +58,7 @@
             this.notifyIcon1.Icon = System.Drawing.SystemIcons.Application;
             this.notifyIcon1.Text = "Fuck GUET 校园网";
             this.notifyIcon1.Visible = true;
-            this.notifyIcon1.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.notifyIcon1_MouseDoubleClick);
+            this.notifyIcon1.Click += new System.EventHandler(this.notifyIcon1_Click);
             // 
             // contextMenuStrip1
             // 

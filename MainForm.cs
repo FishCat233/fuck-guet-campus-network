@@ -1,4 +1,4 @@
-﻿﻿using System;
+using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -23,11 +23,13 @@ namespace GUETCampusNetAutoLogin
             // 加载保存的配置
             LoadSettings();
 
-            // 根据设置决定是否最小化到托盘
+            // 根据设置决定是否启动时隐藏到托盘
             if (Properties.Settings.Default.StartMinimized)
             {
-                WindowState = FormWindowState.Minimized;
+                // 启动时隐藏到托盘，不显示主窗口
                 Hide();
+                ShowInTaskbar = false;
+                WindowState = FormWindowState.Minimized;
             }
 
             UpdateStatus("程序已启动");
@@ -39,6 +41,7 @@ namespace GUETCampusNetAutoLogin
             if (e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
+                ShowInTaskbar = false;
                 WindowState = FormWindowState.Minimized;
                 Hide();
                 ShowNotification("程序已最小化", "双击托盘图标显示主窗口", ToolTipIcon.Info);
@@ -49,6 +52,7 @@ namespace GUETCampusNetAutoLogin
         {
             if (WindowState == FormWindowState.Minimized)
             {
+                ShowInTaskbar = false;
                 Hide();
             }
         }
@@ -200,11 +204,29 @@ namespace GUETCampusNetAutoLogin
         }
 
         /// <summary>
-        /// 托盘图标双击
+        /// 托盘图标单击 - 切换显示/隐藏
         /// </summary>
-        private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
+        private void notifyIcon1_Click(object sender, EventArgs e)
         {
-            ShowMainWindow();
+            ToggleWindowVisibility();
+        }
+
+        /// <summary>
+        /// 切换窗口显示/隐藏状态
+        /// </summary>
+        private void ToggleWindowVisibility()
+        {
+            if (Visible)
+            {
+                Hide();
+                WindowState = FormWindowState.Minimized;
+            }
+            else
+            {
+                Show();
+                WindowState = FormWindowState.Normal;
+                Activate();
+            }
         }
 
         /// <summary>
@@ -281,6 +303,7 @@ namespace GUETCampusNetAutoLogin
         /// </summary>
         private void ShowMainWindow()
         {
+            ShowInTaskbar = true;
             Show();
             WindowState = FormWindowState.Normal;
             Activate();
