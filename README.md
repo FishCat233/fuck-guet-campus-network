@@ -16,4 +16,4 @@
 
 ## 下载
 
-见 Releases 页面.
+见 [Release](https://github.com/FishCat233/fuck-guet-campus-network/releases) 页面.
