@@ -1,0 +1,13 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "GUETCampusNetAutoLogin",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        "Properties/AssemblyInfo.cs"
+      ],
+      "include-component-in-tag": false
+    }
+  }
+}
